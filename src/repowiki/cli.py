@@ -415,6 +415,11 @@ def chat(path_or_url: str, model: str | None, lang: str | None):
     rag, index_cached = load_or_build_index(project)
     if index_cached:
         console.print(f"[dim]Index unchanged, loaded from cache ({len(rag.chunks)} chunks).[/]")
+    elif rag.last_build_stats["reused"]:
+        console.print(
+            f"[dim]Index refreshed incrementally: reused {rag.last_build_stats['reused']} "
+            f"unchanged file(s), rebuilt {rag.last_build_stats['rebuilt']}.[/]"
+        )
     if not rag.chunks:
         console.print("[yellow]No readable source found to chat about.[/]")
         return

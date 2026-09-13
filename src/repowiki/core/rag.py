@@ -13,6 +13,15 @@ from pathlib import Path
 from repowiki.core.models import ProjectContext
 
 _INDEX_DIR = Path.home() / ".repowiki" / "rag"
+_INDEX_VERSION = 2
+
+
+def _file_hash(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:24]
+
+
+def _repo_key(project: ProjectContext) -> str:
+    return hashlib.sha256(str(Path(project.root).resolve()).encode()).hexdigest()[:24]
 
 
 @dataclass
@@ -47,32 +56,79 @@ class SimpleRAG:
         self.chunks: list[Chunk] = []
         self._idf: dict[str, float] = {}
         self._tf_vectors: list[Counter] = []
+        self.file_hashes: dict[str, str] = {}
+        self.last_build_stats: dict[str, int] = {"reused": 0, "rebuilt": 0}
 
     def index(self, project: ProjectContext) -> None:
         """chunk project files and build the TF-IDF index."""
         self.chunks = []
+        self._tf_vectors = []
+        self.file_hashes = {}
         for f in project.files:
             text = f.content or f.preview
             if not text:
                 continue
-            file_chunks = _split_into_chunks(text, f.path)
-            self.chunks.extend(file_chunks)
+            self.file_hashes[f.path] = _file_hash(text)
+            for chunk in _split_into_chunks(text, f.path):
+                self.chunks.append(chunk)
+                self._tf_vectors.append(Counter(_tokenize(chunk.content)))
+        self.last_build_stats = {"reused": 0, "rebuilt": len(self.file_hashes)}
+        self._build_idf()
 
-        # build IDF
+    def index_incremental(
+        self,
+        project: ProjectContext,
+        previous: SimpleRAG | None,
+        file_hashes: dict[str, str] | None = None,
+    ) -> None:
+        """Rebuild only the chunks whose file changed since ``previous``.
+
+        Chunks and tf vectors of untouched files are reused verbatim; idf is
+        recomputed from the merged corpus, which is cheap next to re-tokenizing
+        the whole repo on every edit. ``file_hashes`` may be passed in when the
+        caller already computed them, to avoid hashing the repo twice.
+        """
+        old_hashes = previous.file_hashes if previous is not None else {}
+        old_by_file: dict[str, list[tuple[Chunk, Counter]]] = {}
+        if previous is not None:
+            for chunk, tf in zip(previous.chunks, previous._tf_vectors):
+                old_by_file.setdefault(chunk.file_path, []).append((chunk, tf))
+
+        self.chunks = []
+        self._tf_vectors = []
+        self.file_hashes = file_hashes if file_hashes is not None else {}
+        stats = {"reused": 0, "rebuilt": 0}
+        for f in project.files:
+            text = f.content or f.preview
+            if not text:
+                continue
+            digest = (
+                self.file_hashes[f.path]
+                if f.path in self.file_hashes
+                else self.file_hashes.setdefault(f.path, _file_hash(text))
+            )
+            if old_hashes.get(f.path) == digest:
+                for chunk, tf in old_by_file[f.path]:
+                    self.chunks.append(chunk)
+                    self._tf_vectors.append(tf)
+                stats["reused"] += 1
+            else:
+                for chunk in _split_into_chunks(text, f.path):
+                    self.chunks.append(chunk)
+                    self._tf_vectors.append(Counter(_tokenize(chunk.content)))
+                stats["rebuilt"] += 1
+        self.last_build_stats = stats
+        self._build_idf()
+
+    def _build_idf(self) -> None:
         doc_count = len(self.chunks)
         if doc_count == 0:
+            self._idf = {}
             return
-
         df: Counter = Counter()
-        self._tf_vectors = []
-
-        for chunk in self.chunks:
-            tokens = _tokenize(chunk.content)
-            tf = Counter(tokens)
-            self._tf_vectors.append(tf)
-            for token in set(tokens):
+        for tf in self._tf_vectors:
+            for token in tf:
                 df[token] += 1
-
         self._idf = {token: math.log(doc_count / (count + 1)) for token, count in df.items()}
 
     def save_index(self, path: Path) -> None:
@@ -80,6 +136,8 @@ class SimpleRAG:
         half-written file never reads back as a valid index."""
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
+            "version": _INDEX_VERSION,
+            "file_hashes": self.file_hashes,
             "chunks": [
                 {
                     "file_path": c.file_path,
@@ -107,6 +165,12 @@ class SimpleRAG:
             rag._tf_vectors = [Counter(tf) for tf in payload["tf_vectors"]]
             if len(rag.chunks) != len(rag._tf_vectors):
                 return None
+            file_hashes = payload.get("file_hashes")
+            rag.file_hashes = (
+                {str(k): str(v) for k, v in file_hashes.items()}
+                if isinstance(file_hashes, dict)
+                else {}
+            )
             return rag
         except (OSError, ValueError, KeyError, TypeError):
             return None
@@ -140,18 +204,23 @@ class SimpleRAG:
 def load_or_build_index(
     project: ProjectContext, index_dir: str | Path | None = None
 ) -> tuple[SimpleRAG, bool]:
-    """Load a persisted index for an unchanged repo, else build and save one.
+    """Load a persisted index, rebuilding only what changed.
 
-    Returns (rag, cache_hit). One JSON file per repo fingerprint; a missing or
-    mismatched file just means a rebuild.
+    The cache file is keyed by repo root, not content, so it survives edits;
+    per-file hashes inside the payload decide which chunks are reused.
+    Returns (rag, cache_hit) where cache_hit is True only when every file
+    matched, i.e. no work happened at all.
     """
     index_dir = Path(index_dir) if index_dir is not None else _INDEX_DIR
-    path = index_dir / f"{index_fingerprint(project)}.json"
-    rag = SimpleRAG.load_index(path)
-    if rag is not None and rag.chunks:
-        return rag, True
+    path = index_dir / f"{_repo_key(project)}.json"
+    current_hashes = {
+        f.path: _file_hash(f.content or f.preview) for f in project.files
+    }
+    previous = SimpleRAG.load_index(path)
+    if previous is not None and previous.chunks and previous.file_hashes == current_hashes:
+        return previous, True
     rag = SimpleRAG()
-    rag.index(project)
+    rag.index_incremental(project, previous, current_hashes)
     if rag.chunks:
         try:
             rag.save_index(path)
