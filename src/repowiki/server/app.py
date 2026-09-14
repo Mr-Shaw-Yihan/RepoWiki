@@ -138,7 +138,11 @@ def create_app(static_dir: str | Path | None = None):
                 try:
                     return await super().get_response(path, scope)
                 except HTTPException as exc:
-                    if exc.status_code == 404 and not path.lstrip("/").startswith("api/"):
+                    # Starlette normpaths the URL path to OS separators, so on
+                    # Windows an /api miss arrives backslash-joined and a plain
+                    # "/" prefix check would miss it.
+                    normalized = path.replace("\\", "/").lstrip("/")
+                    if exc.status_code == 404 and not normalized.startswith("api/"):
                         return await super().get_response("index.html", scope)
                     raise
 

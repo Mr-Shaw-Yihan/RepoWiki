@@ -64,3 +64,25 @@ def test_client_side_route_falls_back_to_app_shell(monkeypatch, tmp_path):
             assert "repowiki ui" in resp.text
         # API misses must not be swallowed by the fallback
         assert client.get("/api/no-such-endpoint").status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_api_miss_keeps_404_with_windows_spelled_path(monkeypatch, tmp_path):
+    # Starlette's get_path normpaths the URL to OS separators; on Windows an
+    # /api miss arrives at the fallback as "api\no-such", and the prefix check
+    # must still keep it a 404 instead of serving the app shell.
+    static = tmp_path / "static"
+    static.mkdir()
+    (static / "index.html").write_text("<html><body>repowiki ui</body></html>", encoding="utf-8")
+
+    app = app_module.create_app(static_dir=static)
+    from starlette.routing import Mount
+
+    spa = next(route.app for route in app.routes if isinstance(route, Mount))
+
+    from starlette.exceptions import HTTPException
+
+    for spelled in ("api/no-such-endpoint", "api\\no-such-endpoint"):
+        with pytest.raises(HTTPException) as excinfo:
+            await spa.get_response(spelled, {"method": "GET", "path": "/" + spelled})
+        assert excinfo.value.status_code == 404
