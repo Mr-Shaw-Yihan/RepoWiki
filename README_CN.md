@@ -157,7 +157,13 @@ cd frontend && npm install && npm run dev
 
 # 启动后端
 repowiki serve --port 8000
+
+# 测试 + 检索评测
+pytest tests/
+python evals/run_eval.py
 ```
+
+检索评测（`evals/`）把夹具仓库跑过真实的扫描与索引链路，检查已知答案所在的文件还能不能被检索回来。它在 pytest 里是硬门槛，在 CI 里是软门槛（标红但不阻塞）；有意改动检索行为后跑 `python evals/run_eval.py --update-baseline` 记录新基线。
 
 ## 后续规划
 

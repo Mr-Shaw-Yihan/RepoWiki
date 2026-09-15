@@ -32,6 +32,26 @@ jobs:
       - name: Run tests
         run: pytest tests/ -v
 
+  rag-eval:
+    # soft gate: retrieval regressions show up red here without blocking the
+    # workflow; the same suite runs blocking inside pytest
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Run the retrieval eval fixture suite
+        run: python evals/run_eval.py
+
   frontend:
     runs-on: ubuntu-latest
 

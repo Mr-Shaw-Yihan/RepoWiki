@@ -1,0 +1,8 @@
+[project]
+name = "taskvane"
+version = "0.3.1"
+description = "A small command-line task manager"
+requires-python = ">=3.10"
+
+[project.scripts]
+taskvane = "taskvane.cli:main"

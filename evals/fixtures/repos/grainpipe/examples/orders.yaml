@@ -1,0 +1,13 @@
+source: examples/orders.csv
+target: build/orders.db
+table: orders
+schema:
+  order_id:
+    required: true
+    type: int
+  sku:
+    required: true
+  quantity:
+    type: int
+  state:
+    choices: [new, paid, shipped, cancelled]

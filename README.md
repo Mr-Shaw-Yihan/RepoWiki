@@ -157,7 +157,17 @@ cd frontend && npm install && npm run dev
 
 # run backend
 repowiki serve --port 8000
+
+# tests + retrieval eval
+pytest tests/
+python evals/run_eval.py
 ```
+
+The retrieval eval (`evals/`) runs fixture repos through the real ingest and
+index path and checks that questions with known source files still retrieve
+them. It runs blocking inside pytest and as a soft (non-blocking) gate in CI;
+run `python evals/run_eval.py --update-baseline` after an intentional
+retrieval change.
 
 ## Roadmap
 

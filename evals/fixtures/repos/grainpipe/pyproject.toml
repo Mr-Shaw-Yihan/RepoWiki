@@ -1,0 +1,5 @@
+[project]
+name = "grainpipe"
+version = "0.4.2"
+description = "Small ETL pipelines as composable stages"
+requires-python = ">=3.10"
