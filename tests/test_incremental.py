@@ -14,7 +14,7 @@ from repowiki.core.state import STATE_FILENAME
 from repowiki.core.wiki_builder import WikiBuilder
 from repowiki.export.markdown import export_markdown
 
-ALL_PAGES = ["architecture", "dependencies", "index", "modules/a", "modules/b", "reading-guide"]
+ALL_PAGES = ["architecture", "cards", "dependencies", "index", "modules/a", "modules/b", "reading-guide"]
 
 
 class StubLLM:
@@ -171,6 +171,7 @@ def test_single_file_change_regenerates_only_its_module_page(tmp_path):
     assert summary["written"] == ["modules/b"]
     assert sorted(summary["kept"]) == [
         "architecture",
+        "cards",
         "dependencies",
         "index",
         "modules/a",
@@ -222,7 +223,7 @@ def test_removed_module_page_is_deleted(tmp_path):
     # without the cross-module import target the dependencies page goes too
     assert sorted(summary["removed"]) == ["dependencies", "modules/b"]
     assert summary["kept"] == ["modules/a"]
-    assert sorted(summary["written"]) == ["architecture", "index", "reading-guide"]
+    assert sorted(summary["written"]) == ["architecture", "cards", "index", "reading-guide"]
     assert not (out / "modules/b.md").exists()
     assert not (out / "dependencies.md").exists()
 
@@ -250,7 +251,7 @@ def test_model_change_invalidates_llm_pages(tmp_path):
         "modules/b",
         "reading-guide",
     ]
-    assert summary["kept"] == ["dependencies"]
+    assert summary["kept"] == ["cards", "dependencies"]
     assert sorted(llm.calls[calls_after_first:]) == [
         "arch",
         "guide",

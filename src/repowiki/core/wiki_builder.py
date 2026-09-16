@@ -64,6 +64,13 @@ class WikiBuilder:
             pages.append(WikiPage(id="architecture", title="Architecture", content=arch_md, order=1))
             sidebar.append(SidebarItem(title="Architecture", page_id="architecture"))
 
+        # 2b. knowledge cards: one compact card per module, for choosing where
+        # to start before opening a full page
+        cards_md = self._build_cards_page(wiki_data)
+        if cards_md:
+            pages.append(WikiPage(id="cards", title="Knowledge Cards", content=cards_md, order=2))
+            sidebar.append(SidebarItem(title="Knowledge Cards", page_id="cards"))
+
         # 3. module pages
         module_sidebar = SidebarItem(title="Modules", page_id="", children=[])
         for i, mod in enumerate(wiki_data.modules):
@@ -182,6 +189,39 @@ class WikiBuilder:
             lines.append("## Data Flow\n")
             lines.append(f"{arch.data_flow}\n")
 
+        return "\n".join(lines)
+
+    def _build_cards_page(self, wiki_data: WikiData) -> str:
+        # one compact card per module: what it is for, what it exposes, what
+        # it touches; enough to pick a starting point before opening the page
+        cards = [m for m in wiki_data.modules if m.purpose or m.files]
+        if not cards:
+            return ""
+        lines = [
+            "# Knowledge Cards\n",
+            "One card per module: its purpose, its public surface, and its",
+            "internal links. Pick a card, then open the full module page.\n",
+        ]
+        for mod in cards:
+            lines.append(f"### `{mod.name}`\n")
+            if mod.purpose:
+                lines.append(f"> {mod.purpose}\n")
+            facts: list[str] = []
+            if mod.files:
+                facts.append(f"{len(mod.files)} files")
+            symbols = [s.name for f in mod.files for s in f.key_symbols]
+            if symbols:
+                shown = symbols[:5]
+                more = f" +{len(symbols) - len(shown)} more" if len(symbols) > len(shown) else ""
+                facts.append("symbols " + ", ".join(f"`{n}`" for n in shown) + more)
+            if mod.key_concepts:
+                facts.append("concepts " + ", ".join(c.name for c in mod.key_concepts[:4]))
+            if facts:
+                lines.append(" · ".join(facts) + "\n")
+            if mod.relationships:
+                rels = ", ".join(f"`{r.source}` → `{r.target}`" for r in mod.relationships[:4])
+                lines.append(f"Internal links: {rels}\n")
+            lines.append(f"[Open the full page]({_rel_href('cards', f'modules/{mod.name}')})\n")
         return "\n".join(lines)
 
     def _build_module_page(self, mod) -> str:
