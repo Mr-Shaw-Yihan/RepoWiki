@@ -17,6 +17,7 @@ from repowiki.core.models import (
     ReadingGuide,
     WikiData,
 )
+from repowiki.core.skeleton import context_for_file
 from repowiki.llm.client import LLMClient
 from repowiki.llm.prompts import (
     build_architecture_prompt,
@@ -84,9 +85,7 @@ class Analyzer:
 
         # 5. generate reading guide (needs module summaries + rankings placeholder)
         progress("Creating reading guide...")
-        reading_guide = await self._generate_reading_guide(
-            project, module_docs, tree_hash
-        )
+        reading_guide = await self._generate_reading_guide(project, module_docs, tree_hash)
 
         progress("Done!")
         return WikiData(
@@ -101,10 +100,7 @@ class Analyzer:
         parts = []
         for f in project.files:
             if f.is_config or f.is_entrypoint:
-                content = f.content if f.content else f.preview
-                # truncate large files
-                if len(content) > 4096:
-                    content = content[:4096] + "\n... (truncated)"
+                content = context_for_file(f.content if f.content else f.preview, f.language)
                 parts.append(f"### {f.path}\n```{f.language}\n{content}\n```")
         return "\n\n".join(parts)
 
@@ -199,10 +195,10 @@ class Analyzer:
             files_text_parts = []
             content_parts = []
             for f in files:
-                content = f.content if f.content else f.preview
-                if len(content) > 4096:
-                    content = content[:4096] + "\n... (truncated)"
-                files_text_parts.append(f"### {f.path} ({f.language})\n```{f.language}\n{content}\n```")
+                content = context_for_file(f.content if f.content else f.preview, f.language)
+                files_text_parts.append(
+                    f"### {f.path} ({f.language})\n```{f.language}\n{content}\n```"
+                )
                 content_parts.append(content)
 
             files_context = "\n\n".join(files_text_parts)
@@ -297,7 +293,9 @@ class Analyzer:
 
         # key on the actual prompt inputs so an import-only edit that reshuffles
         # the ranking also invalidates the cached guide
-        cache_key = f"{self._key_prefix}:guide:{tree_hash}:{content_hash(rankings + module_summaries)}"
+        cache_key = (
+            f"{self._key_prefix}:guide:{tree_hash}:{content_hash(rankings + module_summaries)}"
+        )
         self.cache_keys["reading-guide"] = cache_key
         cached = await self.cache.get(cache_key)
         if cached:
