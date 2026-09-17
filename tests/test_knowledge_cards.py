@@ -23,10 +23,26 @@ def _project() -> ProjectContext:
         name="demo",
         root="/tmp/demo",
         files=[
-            FileInfo(path="alpha/core.py", size=10, language="python", lines=2),
-            FileInfo(path="beta/runner.py", size=10, language="python", lines=2),
+            FileInfo(
+                path="alpha/core.py",
+                size=30,
+                language="python",
+                lines=2,
+                content="import beta.runner\nX = 1\n",
+            ),
+            FileInfo(
+                path="beta/runner.py",
+                size=10,
+                language="python",
+                lines=2,
+                content="Y = 2\n",
+            ),
         ],
     )
+
+
+def _graph() -> DependencyGraph:
+    return DependencyGraph.build_from_project(_project())
 
 
 def _wiki_data() -> WikiData:
@@ -65,7 +81,7 @@ def _wiki_data() -> WikiData:
 
 
 def _build(wiki_data: WikiData | None = None):
-    return WikiBuilder().build(_project(), wiki_data or _wiki_data(), DependencyGraph())
+    return WikiBuilder().build(_project(), wiki_data or _wiki_data(), _graph())
 
 
 def test_cards_page_lists_one_card_per_module() -> None:
@@ -82,6 +98,17 @@ def test_cards_page_lists_one_card_per_module() -> None:
     assert "`alpha` → `beta`" in cards.content
     # every card points at its full module page
     assert "[Open the full page](modules/alpha.md)" in cards.content
+
+
+def test_card_shows_the_entry_file_from_the_dependency_graph() -> None:
+    wiki = _build()
+    cards = wiki.get_page("cards")
+    assert cards is not None
+    # alpha/core.py imports beta/runner.py, so it is the way in for alpha
+    assert "Entry: [`alpha/core.py`](modules/alpha.md)" in cards.content
+    # beta has no entry-point file, so its card omits the line entirely
+    beta_section = cards.content.split("### `beta`", 1)[1]
+    assert "Entry:" not in beta_section
 
 
 def test_cards_page_sits_between_architecture_and_modules_in_sidebar() -> None:

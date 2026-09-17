@@ -66,7 +66,7 @@ class WikiBuilder:
 
         # 2b. knowledge cards: one compact card per module, for choosing where
         # to start before opening a full page
-        cards_md = self._build_cards_page(wiki_data)
+        cards_md = self._build_cards_page(wiki_data, graph)
         if cards_md:
             pages.append(WikiPage(id="cards", title="Knowledge Cards", content=cards_md, order=2))
             sidebar.append(SidebarItem(title="Knowledge Cards", page_id="cards"))
@@ -191,16 +191,19 @@ class WikiBuilder:
 
         return "\n".join(lines)
 
-    def _build_cards_page(self, wiki_data: WikiData) -> str:
+    def _build_cards_page(self, wiki_data: WikiData, graph) -> str:
         # one compact card per module: what it is for, what it exposes, what
-        # it touches; enough to pick a starting point before opening the page
+        # it touches, and which file is the way in; enough to pick a starting
+        # point before opening the page
         cards = [m for m in wiki_data.modules if m.purpose or m.files]
         if not cards:
             return ""
+        entries = graph.get_entry_points()
         lines = [
             "# Knowledge Cards\n",
-            "One card per module: its purpose, its public surface, and its",
-            "internal links. Pick a card, then open the full module page.\n",
+            "One card per module: its purpose, its public surface, its",
+            "internal links, and the file to open first. Pick a card, then",
+            "open the full module page.\n",
         ]
         for mod in cards:
             lines.append(f"### `{mod.name}`\n")
@@ -218,6 +221,13 @@ class WikiBuilder:
                 facts.append("concepts " + ", ".join(c.name for c in mod.key_concepts[:4]))
             if facts:
                 lines.append(" · ".join(facts) + "\n")
+            mod_entries = [e for e in entries if e == mod.name or e.startswith(f"{mod.name}/")]
+            if mod_entries:
+                shown = mod_entries[:3]
+                more = f" +{len(mod_entries) - len(shown)} more" if len(mod_entries) > len(shown) else ""
+                lines.append(
+                    "Entry: " + ", ".join(f"`{e}`" for e in shown) + more + "\n"
+                )
             if mod.relationships:
                 rels = ", ".join(f"`{r.source}` → `{r.target}`" for r in mod.relationships[:4])
                 lines.append(f"Internal links: {rels}\n")
