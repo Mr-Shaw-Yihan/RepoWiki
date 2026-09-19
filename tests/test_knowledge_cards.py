@@ -140,3 +140,47 @@ def test_markdown_export_writes_cards_md(tmp_path) -> None:
     text = out.read_text(encoding="utf-8")
     assert "# Knowledge Cards" in text
     assert "### `beta`" in text
+
+
+def test_card_entry_line_works_for_src_layout() -> None:
+    # module grouping strips wrapper dirs (src/, lib/, ...), so a src-layout
+    # repo's entry paths are src/<mod>/... while the module name is <mod>;
+    # the Entry line must match on the stripped module, not the raw prefix
+    project = ProjectContext(
+        name="demo-src",
+        root="/tmp/demo-src",
+        files=[
+            FileInfo(
+                path="src/mypkg/cli.py",
+                size=40,
+                language="python",
+                lines=2,
+                content="import mypkg.core\nmain = 1\n",
+            ),
+            FileInfo(
+                path="src/mypkg/core.py",
+                size=10,
+                language="python",
+                lines=2,
+                content="Y = 2\n",
+            ),
+        ],
+    )
+    wiki_data = WikiData(
+        overview=ProjectOverview(name="demo-src", one_liner="src layout"),
+        modules=[
+            ModuleDoc(
+                name="mypkg",
+                purpose="the package",
+                files=[
+                    FileDoc(path="src/mypkg/cli.py", purpose="entry"),
+                    FileDoc(path="src/mypkg/core.py", purpose="core"),
+                ],
+            ),
+        ],
+    )
+    graph = DependencyGraph.build_from_project(project)
+    wiki = WikiBuilder().build(project, wiki_data, graph)
+    cards = wiki.get_page("cards")
+    assert cards is not None
+    assert "Entry: [`src/mypkg/cli.py`](modules/mypkg.md)" in cards.content

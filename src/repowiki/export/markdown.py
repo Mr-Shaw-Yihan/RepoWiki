@@ -42,7 +42,11 @@ def export_markdown(
     for page in wiki.pages:
         page_path = out / f"{page.id}.md"
         if incremental:
-            fingerprint = page_inputs.get(page.id) or f"page:{content_hash(page.content)}"
+            inputs = page_inputs.get(page.id, "")
+            # hash the final rendered content as well: cross-links depend on
+            # the global symbol/file index, so a sibling module's change must
+            # rewrite this page even when its own inputs are unchanged
+            fingerprint = f"{inputs}|page:{content_hash(page.content)}"
             new_pages[page.id] = {"inputs": fingerprint}
             if old_pages.get(page.id, {}).get("inputs") == fingerprint and page_path.exists():
                 kept.append(page.id)

@@ -289,3 +289,59 @@ def test_json_export_skips_the_write_when_content_is_unchanged(tmp_path):
     )
     assert export_json(changed, out) is True
     assert _json.loads(out.read_text(encoding="utf-8"))["pages"][0]["content"] == "# B\n"
+
+
+class CrossLinkStubLLM(StubLLM):
+    """module a's prose cites b's file in a code span, so the cross-linker
+    binds it to modules/b while b exists."""
+
+    async def complete(self, messages, max_tokens=4096):
+        user = messages[-1]["content"]
+        m = re.search(r"Document the '([^']+)' module", user)
+        if m and m.group(1) == "a":
+            self.calls.append("module:a")
+            return json.dumps(
+                {"name": "a", "purpose": "a wraps `b/two.py` internals", "files": []}
+            )
+        if m and m.group(1) == "b":
+            self.calls.append("module:b")
+            return json.dumps(
+                {
+                    "name": "b",
+                    "purpose": "b does things",
+                    "files": [{"path": "b/two.py", "purpose": "b core"}],
+                }
+            )
+        return await super().complete(messages, max_tokens)
+
+
+def test_kept_page_drops_links_to_removed_module(tmp_path):
+    out = tmp_path / "wiki"
+    llm = CrossLinkStubLLM()
+    _run_pipeline(_project(FILES_V1), out, tmp_path / "cache.db", llm)
+    assert "b.md" in (out / "modules/a.md").read_text(encoding="utf-8")
+
+    round1_calls = len(llm.calls)
+    only_a = [f for f in FILES_V1 if not f.path.startswith("b/")]
+    summary = _run_pipeline(_project(only_a), out, tmp_path / "cache.db", llm)
+
+    # a's own inputs did not change, but its rendered page did: the link into
+    # the deleted modules/b page must not survive on a kept page
+    assert "modules/a" in summary["written"]
+    assert "b.md" not in (out / "modules/a.md").read_text(encoding="utf-8")
+    # the LLM was not re-asked for a: the rewrite comes from the changed link
+    # index, served straight out of the cache
+    assert "module:a" not in llm.calls[round1_calls:]
+
+
+def test_existing_page_gains_links_when_a_new_module_appears(tmp_path):
+    out = tmp_path / "wiki"
+    llm = CrossLinkStubLLM()
+    only_a = [f for f in FILES_V1 if not f.path.startswith("b/")]
+    _run_pipeline(_project(only_a), out, tmp_path / "cache.db", llm)
+    assert "b.md" not in (out / "modules/a.md").read_text(encoding="utf-8")
+
+    summary = _run_pipeline(_project(FILES_V1), out, tmp_path / "cache.db", llm)
+
+    assert "modules/a" in summary["written"]
+    assert "b.md" in (out / "modules/a.md").read_text(encoding="utf-8")

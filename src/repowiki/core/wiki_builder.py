@@ -6,7 +6,7 @@ import posixpath
 import re
 from dataclasses import dataclass, field
 
-from repowiki.core.graph import DependencyGraph
+from repowiki.core.graph import DependencyGraph, _get_module
 from repowiki.core.models import ProjectContext, WikiData
 
 
@@ -221,7 +221,7 @@ class WikiBuilder:
                 facts.append("concepts " + ", ".join(c.name for c in mod.key_concepts[:4]))
             if facts:
                 lines.append(" · ".join(facts) + "\n")
-            mod_entries = [e for e in entries if e == mod.name or e.startswith(f"{mod.name}/")]
+            mod_entries = [e for e in entries if _get_module(e) == mod.name]
             if mod_entries:
                 shown = mod_entries[:3]
                 more = f" +{len(mod_entries) - len(shown)} more" if len(mod_entries) > len(shown) else ""
