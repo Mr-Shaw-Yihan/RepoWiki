@@ -67,6 +67,11 @@ Issues = "https://github.com/he-yufeng/RepoWiki/issues"
 line-length = 100
 target-version = "py310"
 
+[tool.pytest.ini_options]
+# evals/fixtures/repos/*/tests are fixture inputs for the retrieval evals,
+# not suite tests; collecting them fails on their unpackaged imports.
+testpaths = ["tests"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 ignore = ["E501"]  # line length handled per-file; prompts and HTML templates naturally long
