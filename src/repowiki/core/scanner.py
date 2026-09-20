@@ -295,7 +295,6 @@ def scan_directory(
                 break
 
             full = Path(dirpath) / fname
-            rel = str(full.relative_to(root))
             rel_posix = full.relative_to(root).as_posix()
 
             if full.is_symlink():
@@ -338,14 +337,14 @@ def scan_directory(
             except Exception:
                 continue
 
-            if _looks_minified_source(rel, text):
+            if _looks_minified_source(rel_posix, text):
                 if report is not None:
                     report.minified_count += 1
                 continue
 
-            lang = detect_language(rel)
+            lang = detect_language(rel_posix)
             is_cfg = fname in _CONFIG_FILES
-            is_entry = _is_entrypoint(rel)
+            is_entry = _is_entrypoint(rel_posix)
             line_count = text.count("\n") + 1
 
             # config/entrypoint files get full content for better LLM context
@@ -355,7 +354,9 @@ def scan_directory(
                 preview = "\n".join(text.splitlines()[:preview_lines])
 
             results.append(FileInfo(
-                path=rel,
+                # posix form on every platform: RAG/export paths and the eval
+                # baselines stay separator-stable on Windows too
+                path=rel_posix,
                 size=size,
                 language=lang,
                 lines=line_count,
