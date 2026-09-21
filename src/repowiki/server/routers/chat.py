@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 from fastapi import APIRouter, Header
@@ -25,17 +26,30 @@ async def chat(project_id: str, req: ChatRequest, x_api_key: str | None = Header
     project = proj["project"]
 
     # build RAG index if not cached (in memory first, then the on-disk cache
-    # so a restarted server on an unchanged repo skips the rebuild)
+    # so a restarted server on an unchanged repo skips the rebuild). A cold
+    # build tokenizes the whole repo, so keep it off the event loop.
     if "rag" not in proj:
         from repowiki.core.rag import load_or_build_index
 
-        rag, _ = load_or_build_index(project)
+        rag, _ = await asyncio.to_thread(load_or_build_index, project)
         proj["rag"] = rag
     else:
         rag = proj["rag"]
 
+    # module cards carry the vocabulary raw code lacks: a paraphrased (or
+    # Chinese) question with no lexical overlap against the chunks can still
+    # reach the right files through the card match
+    boost = None
+    wiki = proj.get("wiki")
+    if wiki is not None and getattr(wiki, "modules", None):
+        if "module_index" not in proj:
+            from repowiki.core.rag import ModuleIndex
+
+            proj["module_index"] = ModuleIndex.from_modules(wiki.modules)
+        boost = proj["module_index"].file_scores(req.question)
+
     # retrieve relevant chunks
-    chunks = rag.retrieve(req.question, top_k=5)
+    chunks = rag.retrieve(req.question, top_k=5, boost=boost)
     context_parts = []
     references = []
     for chunk in chunks:

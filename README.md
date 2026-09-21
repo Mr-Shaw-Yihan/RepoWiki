@@ -167,8 +167,10 @@ python evals/run_eval.py
 
 The retrieval eval (`evals/`) runs fixture repos through the real ingest and
 index path and checks that questions with known source files still retrieve
-them. It runs blocking inside pytest and as a soft (non-blocking) gate in CI;
-run `python evals/run_eval.py --update-baseline` after an intentional
+them, through the plain channel and through the module-card channel (whose
+fixture suite includes paraphrase and Chinese questions). It runs blocking
+inside pytest and as a soft (non-blocking) gate in CI; run
+`python evals/run_eval.py --update-baseline` after an intentional
 retrieval change.
 
 ## Roadmap

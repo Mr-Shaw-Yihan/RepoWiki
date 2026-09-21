@@ -1,0 +1,83 @@
+[
+  {
+    "name": "Task persistence",
+    "purpose": "Persist the todo list to a JSON file on disk, atomically, so a crash cannot corrupt the store",
+    "description": "负责把任务列表安全地写入磁盘文件：每次变更整体重写，进程崩掉也不会留下写了一半的存储。重启后任务不丢全靠这一层。",
+    "key_concepts": [
+      {"name": "atomic rewrite", "explanation": "the whole JSON document is rewritten on every mutation, never appended"},
+      {"name": "crash safety", "explanation": "崩溃安全：写入中途进程死掉，磁盘上的数据仍然完整可读"}
+    ],
+    "files": [
+      {
+        "path": "taskvane/storage.py",
+        "purpose": "TaskStore: JSON-file persistence for tasks with atomic saves",
+        "key_symbols": [{"name": "TaskStore"}, {"name": "_save"}, {"name": "_load"}]
+      }
+    ]
+  },
+  {
+    "name": "Command line interface",
+    "purpose": "Wire the add/list/done subcommands and the command-line entry point",
+    "description": "命令行入口与子命令接线：add、list、done 怎么注册、参数怎么解析。",
+    "key_concepts": [
+      {"name": "subcommands", "explanation": "add, list and done subcommand wiring"}
+    ],
+    "files": [
+      {
+        "path": "taskvane/cli.py",
+        "purpose": "argparse setup and subcommand dispatch",
+        "key_symbols": [{"name": "main"}, {"name": "build_parser"}]
+      },
+      {
+        "path": "taskvane/__main__.py",
+        "purpose": "forwards to the cli entry point",
+        "key_symbols": [{"name": "main"}]
+      }
+    ]
+  },
+  {
+    "name": "Task model and validation",
+    "purpose": "The Task model and the validation of field values such as priority",
+    "description": "任务的数据模型与字段校验，比如 priority 的合法取值判定。",
+    "key_concepts": [
+      {"name": "priority validation", "explanation": "validate_priority decides which priority values are legal"}
+    ],
+    "files": [
+      {
+        "path": "taskvane/models.py",
+        "purpose": "Task dataclass and validate_priority",
+        "key_symbols": [{"name": "Task"}, {"name": "validate_priority"}]
+      }
+    ]
+  },
+  {
+    "name": "Due date parsing",
+    "purpose": "Parse due dates, including the +Nd and +Nw shorthand",
+    "description": "到期日解析，支持 +Nd、+Nw 这类简写。",
+    "key_concepts": [
+      {"name": "shorthand dates", "explanation": "+Nd and +Nw relative date shorthand"}
+    ],
+    "files": [
+      {
+        "path": "taskvane/dates.py",
+        "purpose": "parse_due_date and the relative shorthand",
+        "key_symbols": [{"name": "parse_due_date"}]
+      }
+    ]
+  },
+  {
+    "name": "Configuration",
+    "purpose": "Where settings come from, including the default store path when no config file exists",
+    "description": "配置从哪里来；没有配置文件时存储路径的默认值在哪决定。",
+    "key_concepts": [
+      {"name": "default store path", "explanation": "default_store_path picks the store location without a config file"}
+    ],
+    "files": [
+      {
+        "path": "taskvane/config.py",
+        "purpose": "config loading and default_store_path",
+        "key_symbols": [{"name": "default_store_path"}, {"name": "load_config"}]
+      }
+    ]
+  }
+]

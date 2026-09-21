@@ -2,91 +2,176 @@
   {
     "repo": "taskvane",
     "question": "Where is the command-line entry point and how are the add/list/done subcommands wired?",
-    "expect_files": ["taskvane/cli.py", "taskvane/__main__.py"],
+    "expect_files": [
+      "taskvane/cli.py",
+      "taskvane/__main__.py"
+    ],
     "note": "CLI wiring lives in cli.py; __main__ only forwards."
   },
   {
     "repo": "taskvane",
     "question": "How are tasks persisted to disk so a crash cannot corrupt the store?",
-    "expect_files": ["taskvane/storage.py"],
+    "expect_files": [
+      "taskvane/storage.py"
+    ],
     "note": "Atomic JSON rewrite in TaskStore._save."
   },
   {
     "repo": "taskvane",
     "question": "What validates a task's priority value?",
-    "expect_files": ["taskvane/models.py"],
+    "expect_files": [
+      "taskvane/models.py"
+    ],
     "note": "validate_priority in models.py."
   },
   {
     "repo": "taskvane",
     "question": "How are due dates parsed, including the +Nd and +Nw shorthand?",
-    "expect_files": ["taskvane/dates.py"],
+    "expect_files": [
+      "taskvane/dates.py"
+    ],
     "note": "parse_due_date in dates.py."
   },
   {
     "repo": "taskvane",
     "question": "Where does the default store path come from when there is no config file?",
-    "expect_files": ["taskvane/config.py"],
+    "expect_files": [
+      "taskvane/config.py"
+    ],
     "note": "default_store_path in config.py."
   },
   {
     "repo": "relayboard",
     "question": "Where is the HTTP server created and started?",
-    "expect_files": ["src/index.ts"],
+    "expect_files": [
+      "src/index.ts"
+    ],
     "note": "createServer in src/index.ts."
   },
   {
     "repo": "relayboard",
     "question": "Which middleware checks the bearer token on API requests?",
-    "expect_files": ["src/middleware/auth.ts"],
+    "expect_files": [
+      "src/middleware/auth.ts"
+    ],
     "note": "bearerAuth in middleware/auth.ts."
   },
   {
     "repo": "relayboard",
     "question": "How are board routes registered, including board creation and lookup?",
-    "expect_files": ["src/routes/boards.ts"],
+    "expect_files": [
+      "src/routes/boards.ts"
+    ],
     "note": "boardsRouter in routes/boards.ts."
   },
   {
     "repo": "relayboard",
     "question": "Where is rate limiting enforced and what happens once the budget is spent?",
-    "expect_files": ["src/middleware/rateLimit.ts"],
+    "expect_files": [
+      "src/middleware/rateLimit.ts"
+    ],
     "note": "429s in middleware/rateLimit.ts."
   },
   {
     "repo": "relayboard",
     "question": "What does the in-memory database for boards and cards look like?",
-    "expect_files": ["src/db.ts"],
+    "expect_files": [
+      "src/db.ts"
+    ],
     "note": "InMemoryDb in db.ts."
   },
   {
     "repo": "grainpipe",
     "question": "How are pipeline stages composed and executed?",
-    "expect_files": ["grainpipe/pipeline.py"],
+    "expect_files": [
+      "grainpipe/pipeline.py"
+    ],
     "note": "Pipeline.then/run in pipeline.py."
   },
   {
     "repo": "grainpipe",
     "question": "Which code reads CSV input into rows?",
-    "expect_files": ["grainpipe/extract.py"],
+    "expect_files": [
+      "grainpipe/extract.py"
+    ],
     "note": "read_csv in extract.py."
   },
   {
     "repo": "grainpipe",
     "question": "Where are row validation rules such as required fields and value choices defined?",
-    "expect_files": ["grainpipe/validate.py"],
+    "expect_files": [
+      "grainpipe/validate.py"
+    ],
     "note": "Schema handling in validate.py."
   },
   {
     "repo": "grainpipe",
     "question": "How are records written into SQLite with batched commits?",
-    "expect_files": ["grainpipe/load.py"],
+    "expect_files": [
+      "grainpipe/load.py"
+    ],
     "note": "write_sqlite in load.py."
   },
   {
     "repo": "grainpipe",
     "question": "Where do pipeline settings come from and how is the YAML file loaded?",
-    "expect_files": ["grainpipe/settings.py"],
+    "expect_files": [
+      "grainpipe/settings.py"
+    ],
     "note": "load_settings in settings.py."
+  },
+  {
+    "repo": "taskvane",
+    "tier": "paraphrase",
+    "question": "程序重启后之前加的任务还在，是靠哪个文件做到的？",
+    "expect_files": [
+      "taskvane/storage.py"
+    ],
+    "note": "Chinese paraphrase for the persistence layer; no lexical overlap with code."
+  },
+  {
+    "repo": "taskvane",
+    "tier": "paraphrase",
+    "question": "Where does the app remember my todos between runs?",
+    "expect_files": [
+      "taskvane/storage.py"
+    ],
+    "note": "Synonym paraphrase: remember/todos/runs never appear in the code."
+  },
+  {
+    "repo": "grainpipe",
+    "tier": "paraphrase",
+    "question": "校验规则在哪个模块里，怎么判定一行数据合不合法？",
+    "expect_files": [
+      "grainpipe/validate.py"
+    ],
+    "note": "Chinese paraphrase for the validation module."
+  },
+  {
+    "repo": "grainpipe",
+    "tier": "paraphrase",
+    "question": "Which part decides whether a record is good enough to keep?",
+    "expect_files": [
+      "grainpipe/validate.py"
+    ],
+    "note": "Synonym paraphrase for validate.py."
+  },
+  {
+    "repo": "relayboard",
+    "tier": "paraphrase",
+    "question": "接口请求是怎么验明身份的，令牌在哪检查？",
+    "expect_files": [
+      "src/middleware/auth.ts"
+    ],
+    "note": "Chinese paraphrase for the auth middleware."
+  },
+  {
+    "repo": "relayboard",
+    "tier": "paraphrase",
+    "question": "What stops someone without a credential from calling the API?",
+    "expect_files": [
+      "src/middleware/auth.ts"
+    ],
+    "note": "Synonym paraphrase for auth.ts."
   }
 ]

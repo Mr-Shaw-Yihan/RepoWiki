@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from repowiki.core.models import FileInfo, ProjectContext
+from types import SimpleNamespace
+
 from repowiki.core.rag import SimpleRAG, format_context
 
 
@@ -67,3 +69,75 @@ def test_format_context():
 
 def test_format_context_empty():
     assert "no relevant code" in format_context([])
+
+
+def _module_project() -> ProjectContext:
+    return _project(
+        ("storage.py", "def save_records(records):\n    write_json(records)\n"),
+        ("cli.py", "def main():\n    parse_args()\n"),
+        ("models.py", "class Record:\n    pass\n"),
+        ("dates.py", "def parse_day(text):\n    return text\n"),
+        ("views.py", "def render_page(page):\n    return page\n"),
+    )
+
+
+def test_cjk_question_tokenizes_to_bigrams():
+    from repowiki.core.rag import _tokenize
+
+    assert _tokenize("存储") == ["存储"]
+    assert "储在" in _tokenize("存储在哪")
+
+
+def test_module_boost_surfaces_zero_overlap_file():
+    # the question shares no vocabulary with storage.py's code; only the
+    # module card's Chinese description can bridge it
+    from repowiki.core.rag import ModuleIndex
+
+    rag = SimpleRAG()
+    rag.index(_module_project())
+    assert rag.retrieve("数据怎么安全地存到磁盘上") == []
+
+    modules = [
+        SimpleNamespace(
+            name="persistence",
+            purpose="把数据安全地写入磁盘",
+            description="存储与崩溃安全",
+            key_concepts=[],
+            files=[SimpleNamespace(path="storage.py", purpose="磁盘存储", key_symbols=[])],
+        )
+    ]
+    boost = ModuleIndex.from_modules(modules).file_scores("数据怎么安全地存到磁盘上")
+    assert boost.get("storage.py", 0) > 0
+    results = rag.retrieve("数据怎么安全地存到磁盘上", boost=boost)
+    assert results and results[0].file_path == "storage.py"
+
+
+def test_boost_never_displaces_lexical_hits():
+    # a strong card match for another file must not push a direct lexical hit
+    # out of the list: the card channel fills gaps, it does not reorder them away
+    from repowiki.core.rag import ModuleIndex
+
+    rag = SimpleRAG()
+    rag.index(_module_project())
+    plain = rag.retrieve("how are records saved with write_json")
+    assert plain and plain[0].file_path == "storage.py"
+
+    modules = [
+        SimpleNamespace(
+            name="interface",
+            purpose="record saving entry points and helpers",
+            description="save records write json entry",
+            key_concepts=[],
+            files=[SimpleNamespace(path="cli.py", purpose="record saving entry", key_symbols=[])],
+        )
+    ]
+    boost = ModuleIndex.from_modules(modules).file_scores("how are records saved with write_json")
+    boosted = rag.retrieve("how are records saved with write_json", boost=boost)
+    assert boosted and boosted[0].file_path == "storage.py"
+
+
+def test_module_index_empty_without_cards():
+    from repowiki.core.rag import ModuleIndex
+
+    idx = ModuleIndex.from_modules([])
+    assert idx.file_scores("anything") == {}

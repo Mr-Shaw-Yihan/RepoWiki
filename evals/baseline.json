@@ -4,5 +4,13 @@
     "taskvane": 1.0,
     "relayboard": 1.0,
     "grainpipe": 1.0
+  },
+  "boosted": {
+    "overall": 1.0,
+    "repos": {
+      "taskvane": 1.0,
+      "relayboard": 1.0,
+      "grainpipe": 1.0
+    }
   }
 }

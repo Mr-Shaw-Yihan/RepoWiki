@@ -1,0 +1,82 @@
+[
+  {
+    "name": "Server bootstrap",
+    "purpose": "Create and start the HTTP server",
+    "description": "HTTP 服务器在哪创建、在哪启动。",
+    "key_concepts": [
+      {"name": "server startup", "explanation": "createServer and listen"}
+    ],
+    "files": [
+      {
+        "path": "src/index.ts",
+        "purpose": "server creation and startup",
+        "key_symbols": [{"name": "createServer"}]
+      }
+    ]
+  },
+  {
+    "name": "Authentication middleware",
+    "purpose": "Bearer-token authentication that rejects unauthenticated API requests",
+    "description": "接口请求怎么验明身份：令牌在哪个中间件里检查，没有凭证的调用会被拦下。",
+    "key_concepts": [
+      {"name": "credential check", "explanation": "没有凭证的请求怎么被识别并拒绝"}
+    ],
+    "files": [
+      {
+        "path": "src/middleware/auth.ts",
+        "purpose": "checks the bearer token on API requests",
+        "key_symbols": [{"name": "authMiddleware"}]
+      }
+    ]
+  },
+  {
+    "name": "Rate limiting",
+    "purpose": "Throttle requests per client",
+    "description": "按客户端限流。",
+    "key_concepts": [
+      {"name": "throttling", "explanation": "per-client request caps"}
+    ],
+    "files": [
+      {
+        "path": "src/middleware/rateLimit.ts",
+        "purpose": "rate limiting middleware",
+        "key_symbols": [{"name": "rateLimit"}]
+      }
+    ]
+  },
+  {
+    "name": "Board and card routes",
+    "purpose": "The boards and cards REST endpoints",
+    "description": "看板与卡片的 REST 接口。",
+    "key_concepts": [
+      {"name": "REST routes", "explanation": "boards and cards endpoints"}
+    ],
+    "files": [
+      {
+        "path": "src/routes/boards.ts",
+        "purpose": "boards endpoints",
+        "key_symbols": [{"name": "boardsRouter"}]
+      },
+      {
+        "path": "src/routes/cards.ts",
+        "purpose": "cards endpoints",
+        "key_symbols": [{"name": "cardsRouter"}]
+      }
+    ]
+  },
+  {
+    "name": "Database layer",
+    "purpose": "Where queries against the database live",
+    "description": "数据库查询集中在这一层。",
+    "key_concepts": [
+      {"name": "queries", "explanation": "database access"}
+    ],
+    "files": [
+      {
+        "path": "src/db.ts",
+        "purpose": "database access",
+        "key_symbols": [{"name": "query"}]
+      }
+    ]
+  }
+]

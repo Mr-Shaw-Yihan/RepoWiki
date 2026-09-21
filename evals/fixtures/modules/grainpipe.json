@@ -1,0 +1,77 @@
+[
+  {
+    "name": "Record validation",
+    "purpose": "Validation rules that decide whether a record is good enough to keep or gets rejected",
+    "description": "校验规则都收在这个模块：怎么判定一行数据合不合法、哪些记录该被拒掉。",
+    "key_concepts": [
+      {"name": "record legality", "explanation": "一条记录是否合法、能否进入下游的判定逻辑"}
+    ],
+    "files": [
+      {
+        "path": "grainpipe/validate.py",
+        "purpose": "record validation rules",
+        "key_symbols": [{"name": "validate_record"}]
+      }
+    ]
+  },
+  {
+    "name": "Pipeline orchestration",
+    "purpose": "Chain extract, validate and load into one runnable pipeline",
+    "description": "把抽取、校验、加载串成一条完整流水线的主流程。",
+    "key_concepts": [
+      {"name": "pipeline stages", "explanation": "how the stages are ordered and invoked"}
+    ],
+    "files": [
+      {
+        "path": "grainpipe/pipeline.py",
+        "purpose": "the pipeline entry and stage wiring",
+        "key_symbols": [{"name": "run_pipeline"}]
+      }
+    ]
+  },
+  {
+    "name": "Extraction",
+    "purpose": "Pull raw records out of the source",
+    "description": "从数据源把原始记录抽出来。",
+    "key_concepts": [
+      {"name": "source reading", "explanation": "reading the raw input"}
+    ],
+    "files": [
+      {
+        "path": "grainpipe/extract.py",
+        "purpose": "source extraction",
+        "key_symbols": [{"name": "extract"}]
+      }
+    ]
+  },
+  {
+    "name": "Loading",
+    "purpose": "Write the validated records to the destination",
+    "description": "把校验过的记录写到目的地。",
+    "key_concepts": [
+      {"name": "destination write", "explanation": "writing results out"}
+    ],
+    "files": [
+      {
+        "path": "grainpipe/load.py",
+        "purpose": "destination loading",
+        "key_symbols": [{"name": "load"}]
+      }
+    ]
+  },
+  {
+    "name": "Settings",
+    "purpose": "Runtime settings and where their defaults come from",
+    "description": "运行配置与默认值来源。",
+    "key_concepts": [
+      {"name": "defaults", "explanation": "where default settings are decided"}
+    ],
+    "files": [
+      {
+        "path": "grainpipe/settings.py",
+        "purpose": "settings and defaults",
+        "key_symbols": [{"name": "Settings"}]
+      }
+    ]
+  }
+]

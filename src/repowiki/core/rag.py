@@ -121,15 +121,7 @@ class SimpleRAG:
         self._build_idf()
 
     def _build_idf(self) -> None:
-        doc_count = len(self.chunks)
-        if doc_count == 0:
-            self._idf = {}
-            return
-        df: Counter = Counter()
-        for tf in self._tf_vectors:
-            for token in tf:
-                df[token] += 1
-        self._idf = {token: math.log(doc_count / (count + 1)) for token, count in df.items()}
+        self._idf = _compute_idf(self._tf_vectors)
 
     def save_index(self, path: Path) -> None:
         """Persist chunks and vectors as JSON; written atomically so a
@@ -175,8 +167,22 @@ class SimpleRAG:
         except (OSError, ValueError, KeyError, TypeError):
             return None
 
-    def retrieve(self, query: str, top_k: int = 5) -> list[Chunk]:
-        """find top-k chunks most relevant to the query."""
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        boost: dict[str, float] | None = None,
+        alpha: float = 0.4,
+    ) -> list[Chunk]:
+        """find top-k chunks most relevant to the query.
+
+        ``boost`` maps a file path to an extra score (a ModuleIndex match is
+        the producer), so a module card can pull its files' chunks up even
+        when the question shares no vocabulary with the code itself. Lexical
+        hits always group above boost-only chunks: the card channel fills
+        gaps the lexical channel cannot serve, it never displaces a direct
+        hit out of the list.
+        """
         if not self.chunks:
             return []
 
@@ -185,13 +191,15 @@ class SimpleRAG:
 
         scores = []
         for i, chunk in enumerate(self.chunks):
-            tf_vec = self._tf_vectors[i]
-            score = _cosine_similarity(query_tf, tf_vec, self._idf)
-            scores.append((score, i))
+            direct = _cosine_similarity(query_tf, self._tf_vectors[i], self._idf)
+            total = direct
+            if boost:
+                total += alpha * boost.get(chunk.file_path, 0.0)
+            scores.append((1 if direct > 0 else 0, total, i))
 
         scores.sort(reverse=True)
         results = []
-        for score, idx in scores[:top_k]:
+        for _, score, idx in scores[:top_k]:
             if score <= 0:
                 break
             chunk = self.chunks[idx]
@@ -199,6 +207,65 @@ class SimpleRAG:
             results.append(chunk)
 
         return results
+
+
+class ModuleIndex:
+    """TF-IDF over module cards, bridging natural-language questions to files.
+
+    Module cards carry the vocabulary the LLM wrote about a module (purpose,
+    key concepts, file purposes), which raw code chunks lack. A paraphrased
+    question with zero lexical overlap against the code can still reach the
+    right files through the card.
+    """
+
+    def __init__(self):
+        self._vectors: list[Counter] = []
+        self._files: list[list[str]] = []  # file paths per module doc
+        self._idf: dict[str, float] = {}
+
+    @classmethod
+    def from_modules(cls, modules) -> ModuleIndex:
+        idx = cls()
+        for m in modules:
+            files = [f.path for f in getattr(m, "files", []) if getattr(f, "path", "")]
+            if not files:
+                continue
+            idx._vectors.append(Counter(_tokenize(_module_card_text(m))))
+            idx._files.append(files)
+        idx._idf = _compute_idf(idx._vectors)
+        return idx
+
+    def file_scores(self, query: str, top_k: int = 3) -> dict[str, float]:
+        """Map file path to the score of the best-matching module holding it."""
+        if not self._vectors:
+            return {}
+        query_tf = Counter(_tokenize(query))
+        scored = sorted(
+            (
+                (_cosine_similarity(query_tf, vec, self._idf), i)
+                for i, vec in enumerate(self._vectors)
+            ),
+            reverse=True,
+        )
+        out: dict[str, float] = {}
+        for score, i in scored[:top_k]:
+            if score <= 0:
+                break
+            for path in self._files[i]:
+                out[path] = max(out.get(path, 0.0), score)
+        return out
+
+
+def _module_card_text(m) -> str:
+    """Flatten a module card into indexable text."""
+    parts = [getattr(m, "name", ""), getattr(m, "purpose", ""), getattr(m, "description", "")]
+    for c in getattr(m, "key_concepts", []):
+        parts.append(f"{getattr(c, 'name', '')} {getattr(c, 'explanation', '')}")
+    for f in getattr(m, "files", []):
+        parts.append(getattr(f, "path", ""))
+        parts.append(getattr(f, "purpose", ""))
+        parts.extend(getattr(s, "name", "") for s in getattr(f, "key_symbols", []))
+    return " ".join(p for p in parts if p)
 
 
 def load_or_build_index(
@@ -247,10 +314,30 @@ def format_context(chunks: list[Chunk]) -> str:
 
 
 def _tokenize(text: str) -> list[str]:
-    """split text into lowercase tokens, keeping identifiers intact."""
-    # split on non-alphanumeric, underscore preserved
+    """split text into lowercase tokens, keeping identifiers intact.
+
+    CJK runs become character bigrams: without word boundaries they would
+    tokenize to nothing at all, leaving Chinese questions unanswerable.
+    """
     tokens = re.findall(r"[a-zA-Z_]\w*", text.lower())
+    for run in re.findall(r"[一-鿿]+", text):
+        if len(run) == 1:
+            tokens.append(run)
+        else:
+            tokens.extend(run[i : i + 2] for i in range(len(run) - 1))
     return tokens
+
+
+def _compute_idf(tf_vectors: list[Counter]) -> dict[str, float]:
+    """Shared idf for the chunk and module-card indexes."""
+    doc_count = len(tf_vectors)
+    if doc_count == 0:
+        return {}
+    df: Counter = Counter()
+    for tf in tf_vectors:
+        for token in tf:
+            df[token] += 1
+    return {token: math.log(doc_count / (count + 1)) for token, count in df.items()}
 
 
 def _cosine_similarity(vec_a: Counter, vec_b: Counter, idf: dict[str, float]) -> float:
